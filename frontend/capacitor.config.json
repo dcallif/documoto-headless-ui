@@ -1,0 +1,14 @@
+{
+  "appId": "com.documoto.headlessui",
+  "appName": "Documoto Headless UI",
+  "webDir": "dist",
+  "android": {
+    "buildOptions": {
+      "keystorePath": "",
+      "keystoreAlias": "",
+      "keystoreAliasPassword": "",
+      "keystorePassword": "",
+      "releaseType": "APK"
+    }
+  }
+}

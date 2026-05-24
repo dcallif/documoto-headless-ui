@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Documoto Headless UI</string>
+    <string name="title_activity_main">Documoto Headless UI</string>
+    <string name="package_name">com.documoto.headlessui</string>
+    <string name="custom_url_scheme">com.documoto.headlessui</string>
+</resources>
