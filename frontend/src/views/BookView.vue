@@ -64,6 +64,12 @@ const onlineMediaThumbnailUrl = ref(null) // Blob URL for online media thumbnail
 const collapseAllState = ref(false)
 const collapseAllVersion = ref(0)
 const showAllTags = ref(false)
+const showApiCalls = ref(false)
+
+// Load showApiCalls setting
+function loadShowApiCalls() {
+  showApiCalls.value = localStorage.getItem('showApiCalls') === 'true'
+}
 
 // Group tags by name and sum their value counts for display
 const groupedTags = computed(() => {
@@ -236,9 +242,13 @@ async function loadToc() {
     const tagCount = mediaInfo.value?.tagCount || 0
     if (tagCount > 0) {
       try {
-        trackApiCall('GET /library/media/v1/:mediaId/tags')
         const tagsData = await getMediaTags(mediaId.value)
         mediaTags.value = tagsData.tags || []
+        // Track all paginated API calls (tagsData.apiCallCount contains actual number of calls made)
+        const actualTagCalls = tagsData.apiCallCount || 1
+        for (let i = 0; i < actualTagCalls; i++) {
+          trackApiCall('GET /library/media/v1/:mediaId/tags')
+        }
       } catch (tagsErr) {
         console.error('Failed to fetch media tags:', tagsErr)
         mediaTags.value = []
@@ -304,7 +314,10 @@ function openPage(page) {
   router.push({ name: 'page', params: { pageId: pid }, query })
 }
 
-onMounted(loadToc)
+onMounted(() => {
+  loadShowApiCalls()
+  loadToc()
+})
 
 // Reload when mediaId changes (e.g., navigating from search results)
 watch(mediaId, (newId, oldId) => {
@@ -671,7 +684,7 @@ async function clearOfflineForBook() {
           <div v-if="offlineInProgress" class="text-slate-500">
             Caching pages {{ offlineCurrent }} / {{ offlineTotal || '?' }}
           </div>
-          <div v-if="offlineApiCallCount" class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] text-slate-600 shadow-sm">
+          <div v-if="showApiCalls && offlineApiCallCount" class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] text-slate-600 shadow-sm">
             <span class="font-medium uppercase tracking-wide text-slate-500">API Calls</span>
             <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-800">
               {{ offlineApiCallCount }}
@@ -681,7 +694,7 @@ async function clearOfflineForBook() {
             Cached {{ offlineTotal }} page{{ offlineTotal === 1 ? '' : 's' }} for offline use
           </div>
           <div
-            v-if="offlineApiCallSummary.length"
+            v-if="showApiCalls && offlineApiCallSummary.length"
             class="mt-1 w-full text-[11px] text-slate-500"
           >
             <p class="mb-0.5 font-medium">Calls for this offline preload:</p>
@@ -734,7 +747,7 @@ async function clearOfflineForBook() {
         <div class="flex items-center gap-3">
           <h2 class="text-sm font-semibold text-slate-700">Contents</h2>
           <div
-            v-if="viewApiCallCount > 0"
+            v-if="showApiCalls && viewApiCallCount > 0"
             class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] text-slate-600 shadow-sm"
             title="API calls needed to display this view"
           >
@@ -755,7 +768,7 @@ async function clearOfflineForBook() {
 
       <!-- API call breakdown for current view -->
       <div
-        v-if="viewApiCallSummary.length"
+        v-if="showApiCalls && viewApiCallSummary.length"
         class="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-600"
       >
         <p class="mb-1 font-medium text-slate-700">Calls to render this view:</p>

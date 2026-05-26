@@ -90,6 +90,20 @@
         </div>
       </div>
 
+      <!-- Developer Options -->
+      <div class="border-t border-slate-200 pt-4 mt-4">
+        <h3 class="text-sm font-semibold text-slate-700 mb-3">Developer Options</h3>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input
+            v-model="showApiCalls"
+            type="checkbox"
+            class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+          />
+          <span class="text-sm text-slate-700">Show API call counts in UI</span>
+        </label>
+        <p class="text-xs text-slate-500 mt-1 ml-6">Displays API usage counters on book and page views</p>
+      </div>
+
       <!-- Save Button -->
       <div class="flex justify-end mt-4">
         <button
@@ -115,6 +129,7 @@ import { getApiUrl } from '../config'
 
 const profiles = ref([])
 const activeProfileId = ref('')
+const showApiCalls = ref(false)
 
 const saving = ref(false)
 const statusMessage = ref('')
@@ -170,6 +185,9 @@ onMounted(async () => {
         activeProfileId.value = profiles.value[0].id
         localStorage.setItem('activeProfileId', activeProfileId.value)
       }
+      
+      // Load API calls visibility setting
+      showApiCalls.value = localStorage.getItem('showApiCalls') === 'true'
     } catch (e) {
       console.error('Failed to load settings:', e)
     }
@@ -225,6 +243,7 @@ async function saveSettings() {
       // Save to localStorage (standalone mode)
       localStorage.setItem('profiles', JSON.stringify(profiles.value))
       localStorage.setItem('activeProfileId', activeProfileId.value)
+      localStorage.setItem('showApiCalls', showApiCalls.value.toString())
       
       // Store active profile details for easy access
       const activeProfile = profiles.value.find(p => p.id === activeProfileId.value)

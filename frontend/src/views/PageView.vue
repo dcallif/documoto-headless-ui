@@ -400,7 +400,10 @@ async function downloadPdf() {
   }
 }
 
-onMounted(loadPage)
+onMounted(() => {
+  loadShowApiCalls()
+  loadPage()
+})
 
 watch(
   () => route.params.pageId,
@@ -437,6 +440,11 @@ function zoomOut() {
 
 const showApiCalls = ref(false)
 const showPdfModal = ref(false)
+
+// Load showApiCalls setting
+function loadShowApiCalls() {
+  showApiCalls.value = localStorage.getItem('showApiCalls') === 'true'
+}
 
 // Page type detection based on pageFile.fileType
 const pageType = computed(() => {
@@ -496,11 +504,19 @@ async function ensureThumbnailUrl(line) {
     return null
   }
 
-  const profile = JSON.parse(localStorage.getItem('profiles') || '[]').find(p => p.id === localStorage.getItem('activeProfileId'))
-  const baseUrl = getDocumotoBaseUrl(profile?.environment || 'integration')
-  const liveUrl = `${baseUrl}/library/parts/v1/${encodeURIComponent(line.partId)}/thumbnails`
-  line._thumbUrl = liveUrl
-  return liveUrl
+  // Load thumbnail via API and create blob URL (works on both web and mobile)
+  try {
+    const blob = await getPartThumbnail(line.partId)
+    const url = URL.createObjectURL(blob)
+    line._thumbUrl = url
+    // Also save to cache for future use
+    await saveThumbnailBlob(key, blob)
+    return url
+  } catch (e) {
+    console.warn('Failed to load part thumbnail:', line.partId, e)
+    line._thumbError = true
+    return null
+  }
 }
 
 const filteredBom = computed(() => {
@@ -629,7 +645,7 @@ function goBackToBook() {
 
       <div class="flex items-center gap-2">
         <div
-          v-if="apiCallCount !== null"
+          v-if="showApiCalls && apiCallCount !== null"
           class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] text-slate-600 shadow-sm"
         >
           <span class="font-medium uppercase tracking-wide text-slate-500">API Calls</span>
@@ -638,14 +654,6 @@ function goBackToBook() {
           </span>
         </div>
 
-        <button
-          v-if="apiCalls && apiCalls.length"
-          type="button"
-          class="rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-600 shadow-sm hover:bg-slate-50"
-          @click="showApiCalls = !showApiCalls"
-        >
-          {{ showApiCalls ? 'Hide calls' : 'Show calls' }}
-        </button>
       </div>
     </div>
 

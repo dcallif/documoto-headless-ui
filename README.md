@@ -10,7 +10,7 @@ It lets you:
 - Open a page to view its illustration, BOM, and hotpoints (including **PDF documents**).
 - Add parts from any BOM to a persistent shopping cart.
 - Take an entire book **offline** and view its pages without a network.
-- Track **API call counts** for transparency on Documoto API usage.
+- Track **API call counts** for transparency on Documoto API usage (toggle in Settings).
 
 The back‑end (Node/Express) proxies the Documoto API and handles authentication.
 
@@ -54,7 +54,7 @@ Illustration with hotpoints, BOM table, and cart controls.
 - **Offline:**
   - IndexedDB via `src/offline/offlineStore.js` for pages, illustrations, thumbnails, and cached books.
   - Minimal `service-worker.js` in `public/` for caching the app shell.
-- **API Tracking:** Each view tracks Documoto API calls made and displays them for transparency.
+- **API Tracking:** Each view tracks Documoto API calls made. Display is controlled via Settings → "Show API call counts in UI" (hidden by default).
 
 ---
 
@@ -214,11 +214,11 @@ Where `mediaName` is derived from `mediaInfo` so the page view can show book con
 
 #### API call tracking
 
-The book view displays the count of Documoto API calls made, including:
+The book view can display the count of Documoto API calls made (enable in Settings → Developer Options). When enabled, tracks:
 
 - `GET /library/media/v1/:mediaId/tocs`
 - `GET /library/media/v1/:mediaId`
-- `GET /library/media/v1/:mediaId/tags` (multiple calls if paginated)
+- `GET /library/media/v1/:mediaId/tags` (accurately counts all paginated calls)
 - `GET /library/media/v1/:mediaId/thumbnails`
 - `GET /library/pages/v1/:pageId/thumbnails` (for each page in TOC)
 
@@ -332,7 +332,7 @@ When viewing a page from a book that is available offline:
 
 #### API call tracking
 
-The page view displays the count of Documoto API calls made to load the page, including:
+The page view can display the count of Documoto API calls made (enable in Settings → Developer Options). When enabled, tracks:
 
 - `GET /library/pages/v1/:pageId`
 - `GET /library/pages/v1/:pageId/boms`
@@ -398,6 +398,27 @@ Examples:
 - Click **Book** name → `/media/:mediaId`.
 
 Cart persists across page reloads because of `localStorage` persistence in `cartStore`.
+
+---
+
+## Settings
+
+File: `src/views/SettingsView.vue`
+
+The Settings page manages configuration profiles for accessing the Documoto API:
+
+**Profile Configuration:**
+- **Environment** – Choose between `integration` (testing) or `production`
+- **Tenant Key** – Your Documoto tenant identifier
+- **API Key** – Your Documoto API authentication key (stored locally)
+- **Multiple Profiles** – Create and switch between different configurations
+
+**Developer Options:**
+- **Show API call counts in UI** – Toggle visibility of API usage counters on book and page views (hidden by default)
+
+**Platform Differences:**
+- **Web/Browser:** Settings are stored in `server/.settings.json` and served via the backend API
+- **Mobile (iOS/Android):** Settings are stored in device `localStorage` for standalone operation
 
 ---
 
@@ -556,9 +577,37 @@ Then in Xcode:
 **Key differences between web and mobile:**
 
 - **Web:** Uses backend proxy (`http://localhost:3001`) for API calls with CORS handling
-- **Mobile:** Makes direct API calls to Documoto API (no proxy needed)
+- **Mobile:** Makes direct API calls to Documoto API using Capacitor HTTP (no proxy needed)
 - **Configuration:** Web uses `server/.settings.json`; mobile uses localStorage for profiles
-- **Environment detection:** The app automatically detects the platform and routes API calls accordingly
+- **Environment detection:** The app automatically detects the platform using `Capacitor.isNativePlatform()`
+
+---
+
+### Desktop App (PWA on macOS)
+
+You can install the web app as a desktop application using your browser's PWA capabilities:
+
+**Safari (macOS):**
+1. Open the app URL in Safari (e.g., `http://localhost:5173` or your deployed URL)
+2. **File** → **Add to Dock**
+3. The app appears in Dock and Launchpad with its own window (no browser chrome)
+
+**Chrome:**
+1. Open the app URL
+2. Click the **📥 Install** icon in the address bar
+3. Check "Open as window" → Click **Install**
+4. App appears in Launchpad and Chrome Apps folder
+
+**Edge:**
+1. Open the app URL
+2. Click **•••** menu → **Apps** → **Install this site as an app**
+3. App appears in Applications folder and Launchpad
+
+**Once installed:**
+- App opens in its own window (no browser address bar/tabs)
+- Works offline with cached data
+- Launches from Dock/Launchpad like a native app
+- Use **Cmd+Space** to search for "Documoto" to launch quickly
 
 ---
 
@@ -588,21 +637,32 @@ Then in Xcode:
    - Add a few parts to cart via 🛒.
    - For PDF documents, view inline with PDF.js viewer.
 
-5. **Take book offline**
+5. **Configure settings**
+   - Go to `/settings`.
+   - Enter your Documoto **Tenant Key** and **API Key**.
+   - Optionally enable **Show API call counts in UI** (Developer Options) to see API usage.
+   - Click **Save Settings**.
+
+6. **Take book offline**
    - Back in the book view, click **📥 Take Book Offline**.
    - Watch progress: `Caching pages X / Y`.
-   - See accurate **API call count** for the preload process.
+   - If API tracking is enabled, see accurate **API call count** for the preload process.
    - On completion, see **Book available offline** badge.
 
-6. **Go offline and reload**
+7. **Go offline and reload**
    - Disconnect network.
    - Reload `/` – app still loads via service worker.
    - In **Offline books**, click your cached book.
    - Navigate to pages; they load from offline cache.
    - Notice no API calls are made for thumbnails when viewing cached pages.
 
-7. **Review cart**
+8. **Review cart**
    - Click the cart chip in the header.
    - See all selected parts, adjust quantities, and click page/book names to jump back to context.
+
+9. **Install as desktop app (optional)**
+   - In Safari: **File** → **Add to Dock**
+   - Or in Chrome/Edge: Use the browser's install option
+   - Launch the app from Dock/Launchpad like a native application
 
 This README is a living document; update it as you add new flows or API integrations.

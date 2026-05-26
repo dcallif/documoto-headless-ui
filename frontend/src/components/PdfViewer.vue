@@ -1,9 +1,10 @@
 <script setup>
 import { ref, onMounted, watch, nextTick } from 'vue'
 import * as pdfjsLib from 'pdfjs-dist'
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
-// Set the worker source - use the ESM build
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.mjs`
+// Set the worker source - use the local worker from the package
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker
 
 const props = defineProps({
   url: {

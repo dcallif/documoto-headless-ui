@@ -5,7 +5,15 @@ import { getApiUrl } from '../config'
 
 // Check if running in browser (not Capacitor)
 // More reliable check: verify we're actually in a native Capacitor context
-const isBrowser = !(window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() !== 'web')
+const isBrowser = !(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())
+
+// Debug platform detection
+console.log('Platform detection:', {
+  hasCapacitor: !!window.Capacitor,
+  isNative: window.Capacitor?.isNativePlatform?.(),
+  platform: window.Capacitor?.getPlatform?.(),
+  isBrowser
+})
 
 export function getDocumotoBaseUrl(environment = 'integration') {
   if (environment === 'production') {
@@ -26,15 +34,30 @@ export function buildHeaders(apiKey) {
 
 // Get active profile from localStorage
 export function getActiveProfile() {
+  console.log('getActiveProfile called')
+  
   const activeProfileId = localStorage.getItem('activeProfileId')
-  if (!activeProfileId) return null
+  console.log('activeProfileId from localStorage:', activeProfileId)
+  
+  if (!activeProfileId) {
+    console.log('No activeProfileId found')
+    return null
+  }
   
   const profilesJson = localStorage.getItem('profiles')
-  if (!profilesJson) return null
+  console.log('profiles from localStorage:', profilesJson ? 'found' : 'not found', 'length:', profilesJson?.length)
+  
+  if (!profilesJson) {
+    console.log('No profiles found in localStorage')
+    return null
+  }
   
   try {
     const profiles = JSON.parse(profilesJson)
-    return profiles.find(p => p.id === activeProfileId) || null
+    console.log('Parsed profiles count:', profiles.length)
+    const profile = profiles.find(p => p.id === activeProfileId)
+    console.log('Found matching profile:', !!profile, 'profileId:', profile?.id, 'hasApiKey:', !!profile?.apiKey)
+    return profile || null
   } catch (e) {
     console.error('Failed to parse profiles from localStorage:', e)
     return null
@@ -75,6 +98,15 @@ async function documotoFetch(url, options = {}, responseType = 'json') {
     const apiKey = profile?.apiKey || ''
     const tenantKey = profile?.tenantKey || ''
     
+    // Debug profile loading
+    console.log('Mobile profile loaded:', {
+      hasProfile: !!profile,
+      hasApiKey: !!apiKey,
+      apiKeyLength: apiKey?.length,
+      hasTenantKey: !!tenantKey,
+      profileId: profile?.id
+    })
+    
     const headers = buildHeaders(apiKey)
     
     // Add tenant key to headers if available
@@ -84,13 +116,25 @@ async function documotoFetch(url, options = {}, responseType = 'json') {
   
     console.log('API Request:', { url, headers: { ...headers, Authorization: headers.Authorization ? '***' : undefined }, responseType })
   
-    const response = await CapacitorHttp.request({
+    // Merge options properly to ensure headers aren't overwritten
+    const requestOptions = {
       url,
-      method: 'GET',
-      headers,
+      method: options.method || 'GET',
+      headers: { ...headers, ...(options.headers || {}) },
       responseType,
       ...options,
+    }
+    // Ensure headers are properly set after spread
+    requestOptions.headers = { ...headers, ...(options.headers || {}) }
+    
+    console.log('CapacitorHttp request:', { 
+      url: requestOptions.url, 
+      method: requestOptions.method,
+      headers: { ...requestOptions.headers, Authorization: requestOptions.headers.Authorization ? '***' : undefined },
+      responseType: requestOptions.responseType 
     })
+    
+    const response = await CapacitorHttp.request(requestOptions)
   
     console.log('API Response:', { status: response.status, ok: response.status >= 200 && response.status < 300 })
   
@@ -181,9 +225,11 @@ export async function getMediaTags(mediaId) {
   
   const allTags = []
   let nextUrl = `${baseUrl}/library/media/v1/${encodeURIComponent(mediaId)}/tags`
+  let apiCallCount = 0
   
   while (nextUrl) {
     const response = await documotoFetch(nextUrl)
+    apiCallCount++
     if (!response.ok) {
       throw new Error('Failed to load media tags')
     }
@@ -196,7 +242,7 @@ export async function getMediaTags(mediaId) {
     nextUrl = data.nextPage || null
   }
   
-  return { tags: allTags }
+  return { tags: allTags, apiCallCount }
 }
 
 export async function getPageDetails(pageId) {

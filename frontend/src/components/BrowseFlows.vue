@@ -72,6 +72,13 @@ async function loadFlowResults(flowId) {
   try {
     const data = await getBrowseFlowResults(flowId)
     flowResults.value = Array.isArray(data.items) ? data.items : []
+    // Pre-load thumbnails for results that have them
+    flowResults.value.forEach(item => {
+      const id = item.entityId || item.id
+      if (item.thumbnailUrl && id && !thumbnailUrls.value.has(id)) {
+        loadThumbnail(id, 'media')
+      }
+    })
   } catch (e) {
     console.error(e)
     flowResults.value = []
@@ -150,6 +157,18 @@ function getChildThumbnailUrl(child) {
       loadThumbnail(child.id, 'flow-item')
     }
     return thumbnailUrls.value.get(child.id) || null
+  }
+  return null
+}
+
+function getResultThumbnailUrl(item) {
+  const id = item.entityId || item.id
+  if (item.thumbnailUrl && id) {
+    if (!thumbnailUrls.value.has(id)) {
+      // Use media thumbnail endpoint for flow results (they are media items)
+      loadThumbnail(id, 'media')
+    }
+    return thumbnailUrls.value.get(id) || null
   }
   return null
 }
@@ -265,8 +284,8 @@ function handleImageError(event) {
           <div class="flex items-start gap-4">
             <div class="h-16 w-24 flex-shrink-0 overflow-hidden rounded bg-slate-100">
               <img
-                v-if="item.thumbnailUrl"
-                :src="item.thumbnailUrl"
+                v-if="getResultThumbnailUrl(item)"
+                :src="getResultThumbnailUrl(item)"
                 alt=""
                 class="h-full w-full object-contain"
                 @error="handleImageError"
