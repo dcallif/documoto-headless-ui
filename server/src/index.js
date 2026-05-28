@@ -89,6 +89,31 @@ app.get('/api/media/search', async (req, res) => {
   }
 });
 
+// Also support the full Documoto path for direct proxy compatibility
+app.get('/api/library/search/v1', async (req, res) => {
+  const { q, type } = req.query;
+  if (!q) {
+    return res.status(400).json({ error: 'Missing query parameter q' });
+  }
+
+  try {
+    const url = `${getDocumotoBaseUrl()}/library/search/v1?q=${encodeURIComponent(q)}${type ? `&type=${type}` : ''}`;
+    const response = await fetch(url, {
+      headers: buildHeaders(),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      return res.status(response.status).json({ error: 'Documoto search error', details: data });
+    }
+
+    res.json(data);
+  } catch (err) {
+    console.error('Error searching media:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 app.get('/api/parts/:partId/thumbnail', async (req, res) => {
   const { partId } = req.params;
 
@@ -539,6 +564,33 @@ app.get('/api/library/media/v1/:mediaId/tags', async (req, res) => {
     res.json(data);
   } catch (err) {
     console.error('Error fetching media tags:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Media files endpoint (for videos, documents, etc.)
+app.get('/api/library/media/v1/:mediaId/media-files', async (req, res) => {
+  const { mediaId } = req.params;
+  try {
+    const headers = buildHeaders();
+    const url = `${getDocumotoBaseUrl()}/library/media/v1/${encodeURIComponent(mediaId)}/media-files`;
+    const response = await fetch(url, { headers });
+    
+    if (!response.ok) {
+      const bodyText = await response.text().catch(() => '');
+      console.error('Media file error:', response.status, bodyText.substring(0, 500));
+      return res.status(response.status).json({ error: 'Failed to fetch media file' });
+    }
+    
+    // Stream the blob response
+    const contentType = response.headers.get('content-type') || 'application/octet-stream';
+    res.set('Content-Type', contentType);
+    
+    const blob = await response.blob();
+    const arrayBuffer = await blob.arrayBuffer();
+    res.send(Buffer.from(arrayBuffer));
+  } catch (err) {
+    console.error('Error fetching media file:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

@@ -12,6 +12,7 @@ import {
   getPageFile,
   getPartThumbnail,
   getMediaThumbnail,
+  getMediaFile,
 } from '../api/documoto'
 import {
   savePageDetails,
@@ -65,6 +66,7 @@ const collapseAllState = ref(false)
 const collapseAllVersion = ref(0)
 const showAllTags = ref(false)
 const showApiCalls = ref(false)
+const mediaFileUrl = ref(null) // For video/media file playback
 
 // Load showApiCalls setting
 function loadShowApiCalls() {
@@ -288,6 +290,19 @@ async function loadToc() {
 
     // Reflect current offline status for this book (only show badge if explicitly taken offline)
     isOfflineBook.value = await isBookExplicitlyOffline(mediaId.value)
+    
+    // Load media file for media without TOC (videos, documents, etc.)
+    if ((!nodes || nodes.length === 0) && mediaInfo.value?.mediaFile?.url) {
+      try {
+        console.log('Loading media file for:', currentMediaId)
+        const mediaFileBlob = await getMediaFile(currentMediaId)
+        mediaFileUrl.value = URL.createObjectURL(mediaFileBlob)
+        console.log('Media file loaded successfully')
+      } catch (mediaFileErr) {
+        console.warn('Failed to load media file:', mediaFileErr)
+        mediaFileUrl.value = null
+      }
+    }
   } catch (e) {
     console.error(e)
     error.value = e.message
@@ -728,11 +743,50 @@ async function clearOfflineForBook() {
       </button>
     </div>
 
-    <!-- Document without TOC -->
+    <!-- Document without TOC - Show media file if available -->
     <div v-if="!loading && !error && (!toc || !toc.length)" class="rounded border border-slate-200 bg-white p-6">
       <h2 class="text-lg font-semibold text-slate-700 mb-2">{{ mediaInfo?.title || mediaInfo?.name || 'Document' }}</h2>
       <p v-if="mediaInfo?.description" class="text-sm text-slate-600 mb-4">{{ mediaInfo.description }}</p>
-      <p class="text-sm text-slate-500 mb-4">This media does not have a table of contents. It may be a standalone document.</p>
+      
+      <!-- Video Player -->
+      <div v-if="mediaInfo?.mediaType === 'Video' && mediaFileUrl" class="mb-4">
+        <video 
+          :src="mediaFileUrl" 
+          controls 
+          class="w-full max-h-[500px] rounded border border-slate-200"
+          preload="metadata"
+        >
+          Your browser does not support the video tag.
+        </video>
+        <p class="text-xs text-slate-500 mt-2">
+          {{ mediaInfo?.mediaFile?.fileName || 'Video file' }}
+        </p>
+      </div>
+      
+      <!-- Other Media File Types -->
+      <div v-else-if="mediaInfo?.mediaFile?.url" class="mb-4">
+        <div class="rounded border border-slate-200 bg-slate-50 p-4">
+          <p class="text-sm font-medium text-slate-700 mb-2">Media File</p>
+          <p class="text-sm text-slate-600 mb-2">{{ mediaInfo.mediaFile.fileName || 'Unknown file' }}</p>
+          <p class="text-xs text-slate-500 mb-3">Type: {{ mediaInfo.mediaFile.fileType || mediaInfo.mediaType || 'Unknown' }}</p>
+          <a 
+            :href="mediaFileUrl" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-1 text-sm text-sky-600 hover:underline"
+            download
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Download File
+          </a>
+        </div>
+      </div>
+      
+      <!-- No media file available -->
+      <p v-else class="text-sm text-slate-500 mb-4">This media does not have a table of contents or downloadable content.</p>
+      
       <button
         type="button"
         class="text-sm text-sky-600 hover:underline"

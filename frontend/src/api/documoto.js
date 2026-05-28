@@ -183,7 +183,7 @@ async function documotoFetch(url, options = {}, responseType = 'json') {
 export async function searchMedia(query) {
   const profile = getActiveProfile()
   const baseUrl = getDocumotoBaseUrl(profile?.environment || 'integration')
-  const url = `${baseUrl}/library/search/v1?q=${encodeURIComponent(query)}&type=book`
+  const url = `${baseUrl}/library/search/v1?q=${encodeURIComponent(query)}`
   
   const response = await documotoFetch(url)
   const data = await response.json()
@@ -357,6 +357,20 @@ export async function getMediaThumbnail(mediaId) {
   
   if (!response.ok) {
     throw new Error('Failed to load media thumbnail')
+  }
+  
+  return response.blob()
+}
+
+export async function getMediaFile(mediaId) {
+  const profile = getActiveProfile()
+  const baseUrl = getDocumotoBaseUrl(profile?.environment || 'integration')
+  const url = `${baseUrl}/library/media/v1/${encodeURIComponent(mediaId)}/media-files`
+  
+  const response = await documotoFetch(url, {}, 'blob')
+  
+  if (!response.ok) {
+    throw new Error('Failed to load media file')
   }
   
   return response.blob()
