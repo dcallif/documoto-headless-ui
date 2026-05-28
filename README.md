@@ -1,6 +1,8 @@
 # Documoto IPC Viewer
 
-This app is a Vue 3 + Vite front‑end for exploring **Documoto interactive parts catalogs (IPCs)**.
+A Vue 3 + Vite frontend for exploring **Documoto interactive parts catalogs (IPCs)**. Works in browsers, as a mobile app (iOS/Android via Capacitor), and as a desktop PWA.
+
+**Live Demo:** Run locally or deploy the built `dist/` folder to any static hosting.
 
 It lets you:
 
@@ -32,6 +34,65 @@ Nested book structure with chapters, pages, and thumbnails.
 Illustration with hotpoints, BOM table, and cart controls.
 
 ![Interactive Parts Page](docs/screenshots/documoto-headless-interactive-parts-page.png)
+
+---
+
+## Technology Stack
+
+| Layer | Technology | Version |
+|-------|-----------|---------|
+| **Frontend Framework** | Vue 3 | ^3.5.34 |
+| **Build Tool** | Vite | ^8.0.12 |
+| **Router** | Vue Router | ^4.6.4 |
+| **Styling** | Tailwind CSS | ^3.4.19 |
+| **PDF Rendering** | PDF.js | ^4.0.379 |
+| **Mobile Framework** | Capacitor | ^5.7.0 |
+| **Backend** | Node.js + Express | ^4.18.2 |
+| **Offline Storage** | IndexedDB + localForage | - |
+
+---
+
+## Prerequisites
+
+### Required
+- **Node.js** 18+ and npm
+- **Git**
+
+### For Mobile Development
+- **Android:** Android Studio + Android SDK (API 33+)
+- **iOS:** macOS + Xcode 14+
+
+### For Web/Browser Testing
+- Modern browser (Chrome, Safari, Firefox, Edge)
+- Documoto API credentials (tenant key + API key)
+
+---
+
+## Project Structure
+
+```
+documoto-headless-ui/
+├── frontend/                 # Vue 3 frontend application
+│   ├── src/
+│   │   ├── api/           # API client functions (documoto.js)
+│   │   ├── components/    # Vue components (BrowseFlows, TocTree, etc.)
+│   │   ├── offline/       # IndexedDB offline storage (offlineStore.js)
+│   │   ├── stores/        # Pinia/Vue stores (cartStore, searchStore, tocStore)
+│   │   ├── views/         # Page views (SearchView, BookView, PageView, etc.)
+│   │   └── ...
+│   ├── android/           # Capacitor Android project (generated)
+│   ├── ios/               # Capacitor iOS project (generated)
+│   └── dist/              # Production build output
+│
+├── server/                # Node.js Express backend
+│   ├── src/index.js       # Main server file
+│   └── .settings.json     # API configuration (not committed)
+│
+├── docs/
+│   └── screenshots/       # UI screenshots for README
+│
+└── setup.sh               # One-command setup script
+```
 
 ---
 
@@ -502,6 +563,38 @@ After first load, you can reload `/` while offline and the app shell will still 
 
 ---
 
+## Configuration
+
+### Web/Browser Mode (`server/.settings.json`)
+
+Create this file in the `server/` directory:
+
+```json
+{
+  "profiles": [
+    {
+      "id": "default",
+      "name": "Integration",
+      "environment": "integration",
+      "tenantKey": "your-tenant-key",
+      "apiKey": "your-api-key"
+    }
+  ],
+  "activeProfileId": "default"
+}
+```
+
+**Note:** This file is gitignored to protect your credentials.
+
+### Mobile Mode (Settings Page)
+
+1. Open the app on your device
+2. Navigate to **Settings** (`/settings`)
+3. Create a profile with your Documoto credentials
+4. The credentials are stored securely in device `localStorage`
+
+---
+
 ## Running the app
 
 ### Quick setup
@@ -576,10 +669,120 @@ Then in Xcode:
 
 **Key differences between web and mobile:**
 
-- **Web:** Uses backend proxy (`http://localhost:3001`) for API calls with CORS handling
-- **Mobile:** Makes direct API calls to Documoto API using Capacitor HTTP (no proxy needed)
-- **Configuration:** Web uses `server/.settings.json`; mobile uses localStorage for profiles
-- **Environment detection:** The app automatically detects the platform using `Capacitor.isNativePlatform()`
+| Feature | Web/Browser | Mobile (iOS/Android) |
+|---------|-------------|---------------------|
+| **API Calls** | Via backend proxy (CORS handled) | Direct via Capacitor HTTP |
+| **Configuration** | `server/.settings.json` | Settings page → `localStorage` |
+| **Storage** | browser cache | IndexedDB + Filesystem plugin |
+| **PDF Viewer** | PDF.js in iframe | PDF.js with local worker |
+| **Offline** | Service worker + IndexedDB | IndexedDB + native filesystem |
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+**401 Unauthorized on iOS**
+- Ensure your profile has valid API credentials in Settings
+- Check that `activeProfileId` matches your profile ID
+- Verify API key hasn't expired
+
+**Thumbnails not loading on mobile**
+- This is expected behavior when offline - thumbnails load from cache only
+- When online, thumbnails fetch via authenticated API calls
+- Browse flow results and BOM thumbnails now use blob URLs for mobile compatibility
+
+**PDF won't load / version mismatch error**
+- The PDF.js worker is now bundled locally (not from CDN)
+- If issues persist: `npm ci` to reinstall exact versions
+
+**Android build fails**
+- Ensure Android SDK is installed (API 33+)
+- Check `JAVA_HOME` environment variable
+- Run `./gradlew clean` before rebuilding
+
+**iOS build fails in Xcode**
+- Ensure Capacitor sync completed: `npm run ios:sync`
+- Check that `NSAppTransportSecurity` allows arbitrary loads (for development)
+- Clean build folder: Product → Clean Build Folder
+
+**Settings not saving on mobile**
+- Check browser console for `localStorage` errors
+- Ensure device has storage permissions
+- Try clearing app data and reconfiguring
+
+---
+
+## API Endpoints
+
+The app interacts with these Documoto API endpoints:
+
+### Browse & Search
+- `GET /library/browse-flows/v1` - List browse categories
+- `GET /library/browse-flows/v1/:flowId` - Browse flow details
+- `GET /library/search/v1?q=&type=book` - Search media
+
+### Books (Media)
+- `GET /library/media/v1/:mediaId` - Media details
+- `GET /library/media/v1/:mediaId/tocs` - Table of contents
+- `GET /library/media/v1/:mediaId/tags` - Media tags (paginated)
+- `GET /library/media/v1/:mediaId/thumbnails` - Media thumbnail
+
+### Pages
+- `GET /library/pages/v1/:pageId` - Page details
+- `GET /library/pages/v1/:pageId/boms` - Bill of materials
+- `GET /library/pages/v1/:pageId/hotpoints` - Interactive hotpoints
+- `GET /library/pages/v1/:pageId/page-illustrations` - Page illustration image
+- `GET /library/pages/v1/:pageId/thumbnails` - Page thumbnail
+- `GET /library/pages/v1/:pageId/page-file` - PDF file for documents
+
+### Parts
+- `GET /library/parts/v1/:partId/thumbnails` - Part thumbnail for BOM
+
+---
+
+## Security Notes
+
+- **API Keys:** Never commit `server/.settings.json` or mobile credentials to git
+- **iOS ATS:** Configured to allow arbitrary loads for development (see `Info.plist`)
+- **CORS:** Backend proxy handles CORS for web; Capacitor HTTP bypasses CORS on mobile
+- **Offline Data:** Cached data is stored unencrypted in IndexedDB/device storage
+
+---
+
+## Development Tips
+
+### Hot Reload
+- **Web:** Vite dev server provides instant HMR at `http://localhost:5173`
+- **Mobile:** Use Capacitor Live Reload (configure in `capacitor.config.json`)
+
+### Debugging
+- **Web:** Browser DevTools → Console/Network/Application (IndexedDB)
+- **iOS:** Safari → Develop → [Device] → Web Inspector
+- **Android:** Chrome → chrome://inspect → Remote devices
+
+### Testing Offline
+1. Open DevTools → Network → Check "Offline"
+2. Or disable WiFi on device
+3. Navigate to a previously cached book
+
+---
+
+## License
+
+MIT - See LICENSE file (if included) or contact the author.
+
+---
+
+## Contributing
+
+This is a reference implementation. Feel free to fork and modify for your use case. Key extension points:
+
+- **Custom styling:** Modify Tailwind classes in components
+- **Additional API endpoints:** Add functions to `src/api/documoto.js`
+- **Offline sync strategies:** Extend `src/offline/offlineStore.js`
+- **Authentication:** Implement OAuth flow in server proxy
 
 ---
 
